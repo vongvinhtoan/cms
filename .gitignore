@@ -16,3 +16,8 @@ log/
 codecov/
 .dev/
 test_logs/
+cp
+bgens-mock/
+statements/
+uv.lock
+con_test
