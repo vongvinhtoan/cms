@@ -155,6 +155,8 @@ setup(
             "cmsImportTeam=cmscontrib.ImportTeam:main",
             "cmsImportUser=cmscontrib.ImportUser:main",
             "cmsRWSHelper=cmscontrib.RWSHelper:main",
+            "cmsResetBestValues=cmscontrib.ResetBestValues:main",
+            "cmsShowBestValues=cmscontrib.ShowBestValues:main",
             "cmsRemoveContest=cmscontrib.RemoveContest:main",
             "cmsRemoveParticipation=cmscontrib.RemoveParticipation:main",
             "cmsRemoveSubmissions=cmscontrib.RemoveSubmissions:main",
@@ -176,6 +178,8 @@ setup(
             "GroupMin=cms.grading.scoretypes.GroupMin:GroupMin",
             "GroupMul=cms.grading.scoretypes.GroupMul:GroupMul",
             "GroupThreshold=cms.grading.scoretypes.GroupThreshold:GroupThreshold",
+            "LinearRelativeScore=cms.grading.scoretypes.RelativeScore:LinearRelativeScore",
+            "ExponentialRelativeScore=cms.grading.scoretypes.RelativeScore:ExponentialRelativeScore",
         ],
         "cms.grading.languages": [
             "C++11 / g++=cms.grading.languages.cpp11_gpp:Cpp11Gpp",

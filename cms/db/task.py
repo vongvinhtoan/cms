@@ -412,6 +412,13 @@ class Dataset(Base):
         JSONB,
         nullable=False)
 
+    # Best outcome per testcase codename across all submissions
+    # for relative score types: {codename: float}.
+    best_values = Column(
+        JSONB,
+        nullable=True,
+        default={})
+
     # These one-to-many relationships are the reversed directions of
     # the ones defined in the "child" classes using foreign keys.
 

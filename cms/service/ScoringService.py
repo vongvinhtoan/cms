@@ -27,8 +27,11 @@
 
 import logging
 
+from sqlalchemy import func, Float as SQLFloat
+
 from cms import ServiceCoord, config
-from cms.db import SessionGen, Submission, Dataset, get_submission_results
+from cms.db import SessionGen, Submission, Dataset, Evaluation, \
+    get_submission_results
 from cms.io import Executor, TriggeredService, rpc_method
 from cmscommon.datetime import make_datetime
 from .scoringoperations import ScoringOperation, get_operations
@@ -38,9 +41,10 @@ logger = logging.getLogger(__name__)
 
 
 class ScoringExecutor(Executor):
-    def __init__(self, proxy_service):
+    def __init__(self, proxy_service, scoring_service):
         super().__init__()
         self.proxy_service = proxy_service
+        self.scoring_service = scoring_service
 
     def execute(self, entry):
         """Assign a score to a submission result.
@@ -100,8 +104,29 @@ class ScoringExecutor(Executor):
                 submission_result.ranking_score_details = \
                 score_type.compute_score(submission_result)
 
-            # Store it.
-            session.commit()
+            # For relative score types, update best_values if needed.
+            if getattr(score_type, 'IS_RELATIVE', False):
+                best_values = dict(dataset.best_values or {})
+                updated = False
+                for evaluation in submission_result.evaluations:
+                    codename = evaluation.codename
+                    outcome = float(evaluation.outcome)
+                    current_best = float(best_values.get(codename, 0.0))
+                    if score_type.is_better(outcome, current_best):
+                        best_values[codename] = outcome
+                        updated = True
+
+                if updated:
+                    self._update_best_values_from_all_submissions(
+                        dataset, session)
+                    session.commit()
+
+                    self.scoring_service.invalidate_submission(
+                        dataset_id=dataset.id)
+                else:
+                    session.commit()
+            else:
+                session.commit()
 
             # If dataset is the active one, update RWS.
             if dataset is submission.task.active_dataset:
@@ -110,6 +135,21 @@ class ScoringExecutor(Executor):
                     (make_datetime() - submission.timestamp).total_seconds())
                 self.proxy_service.submission_scored(
                     submission_id=submission.id)
+
+    def _update_best_values_from_all_submissions(self, dataset, session):
+        """Scan all evaluations for this dataset and compute true best_values."""
+        best_values = dict(dataset.best_values or {})
+
+        for codename, testcase in dataset.testcases.items():
+            max_outcome = session.query(
+                func.max(Evaluation.outcome.cast(SQLFloat)))\
+                .filter(Evaluation.dataset_id == dataset.id)\
+                .filter(Evaluation.testcase_id == testcase.id)\
+                .scalar()
+            if max_outcome is not None:
+                best_values[codename] = float(max_outcome)
+
+        dataset.best_values = best_values
 
 
 class ScoringService(TriggeredService):
@@ -137,7 +177,7 @@ class ScoringService(TriggeredService):
             ServiceCoord("ProxyService", 0),
             must_be_present=ranking_enabled)
 
-        self.add_executor(ScoringExecutor(self.proxy_service))
+        self.add_executor(ScoringExecutor(self.proxy_service, self))
         self.start_sweeper(347.0)
 
     def _missing_operations(self):

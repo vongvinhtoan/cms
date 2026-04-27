@@ -21,3 +21,4 @@ bgens-mock/
 statements/
 uv.lock
 con_test
+.kilo/
